@@ -1,5 +1,5 @@
 import reflex as rx
-from typing import TypedDict, cast
+from typing import TypedDict
 
 
 class McpServer(TypedDict):

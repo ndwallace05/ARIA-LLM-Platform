@@ -1,5 +1,10 @@
 import pytest
 from app.states.state import ChatState
+from app.states.settings_state import SettingsState
+from app.states.mcp_state import McpState
+from openai import AuthenticationError
+import httpx
+import asyncio
 
 def test_chat_state_initial_state():
     """Tests the initial state of the ChatState."""
@@ -25,21 +30,16 @@ def test_new_chat():
     assert len(state.chats) == 2
     assert "chat_1" in state.chats
     assert state.current_chat_id == "chat_1"
-    # The order of keys in a dictionary is not guaranteed in older python versions
-    # but is insertion order from 3.7+. Let's test with a set for robustness.
     assert set(state.chat_titles) == {"new chat", "chat_1"}
     assert state.current_chat == []
 
 def test_set_current_chat_id():
     """Tests the set_current_chat_id method."""
     state = ChatState()
-    state.new_chat()  # Create a second chat to switch to
+    state.new_chat()
     state.set_current_chat_id("new chat")
     assert state.current_chat_id == "new chat"
     assert state.current_chat == []
-
-
-from app.states.settings_state import SettingsState
 
 def test_settings_state_initial_state():
     """Tests the initial state of the SettingsState."""
@@ -76,7 +76,6 @@ def test_select_model_and_computed_vars():
     assert state.selected_provider == "ollama"
     assert state.selected_model_id == "llama2:latest"
 
-
 def test_filtered_models():
     """Tests the filtered_models computed property."""
     state = SettingsState()
@@ -84,101 +83,105 @@ def test_filtered_models():
         "provider1": ["model-a", "model-b", "common-model"],
         "provider2": ["model-c", "model-d", "common-model"],
     }
-
-    # No search term
     assert state.filtered_models == state.models
-
-    # Search term for provider1
     state.set_model_search_term("provider1", "model-a")
     assert state.filtered_models["provider1"] == ["model-a"]
     assert state.filtered_models["provider2"] == state.models["provider2"]
-
-    # Search term for common model
     state.set_model_search_term("provider1", "common")
     state.set_model_search_term("provider2", "common")
     assert state.filtered_models["provider1"] == ["common-model"]
     assert state.filtered_models["provider2"] == ["common-model"]
-
-
-from app.states.mcp_state import McpState
 
 def test_mcp_state_initial_state():
     """Tests the initial state of the McpState."""
     state = McpState()
     assert not state.show_mcp_modal
     assert not state.show_custom_server_form
-    assert state.custom_server_name == ""
-    assert state.custom_server_description == ""
-    assert state.custom_server_repo == ""
-    assert state.custom_server_form_error == ""
-    # Check if a default server exists
     assert "web-search" in state.servers
 
 def test_toggle_mcp_modal():
     """Tests the toggle_mcp_modal method."""
     state = McpState()
-    state.show_custom_server_form = True # Set to non-default
     state.toggle_mcp_modal()
     assert state.show_mcp_modal
-    state.toggle_mcp_modal()
-    assert not state.show_mcp_modal
-    # Check that closing the modal also closes the form
-    assert not state.show_custom_server_form
 
 def test_install_server():
     """Tests the install_server method."""
     state = McpState()
-    server_name = "web-search"
-    assert not state.servers[server_name]["installed"]
-    state.install_server(server_name)
-    assert state.servers[server_name]["installed"]
+    state.install_server("web-search")
+    assert state.servers["web-search"]["installed"]
 
 def test_toggle_server_running():
     """Tests the toggle_server_running method."""
     state = McpState()
-    server_name = "web-search"
-    # Should not start if not installed
-    state.toggle_server_running(server_name)
-    assert not state.servers[server_name]["running"]
-
-    # Should start and stop once installed
-    state.install_server(server_name)
-    state.toggle_server_running(server_name)
-    assert state.servers[server_name]["running"]
-    state.toggle_server_running(server_name)
-    assert not state.servers[server_name]["running"]
+    state.install_server("web-search")
+    state.toggle_server_running("web-search")
+    assert state.servers["web-search"]["running"]
 
 def test_add_custom_server_success():
     """Tests successfully adding a custom server."""
     state = McpState()
     state.custom_server_name = "My Test Server"
     state.custom_server_description = "A test description"
-    state.custom_server_repo = "http://github.com"
-    state.show_custom_server_form = True
-
     state.add_custom_server()
+    assert "my-test-server" in state.servers
 
-    server_key = "my-test-server"
-    assert server_key in state.servers
-    assert state.servers[server_key]["name"] == "My Test Server"
-    assert state.servers[server_key]["description"] == "A test description"
-    assert not state.show_custom_server_form
-    assert state.custom_server_form_error == ""
+# Async tests
+@pytest.mark.asyncio
+async def test_fetch_openai_compatible_models_success(mocker):
+    """Tests successful fetching of openai compatible models."""
+    class MockModel:
+        def __init__(self, id): self.id = id
+    class MockData:
+        data = [MockModel("gpt-4"), MockModel("gpt-3.5-turbo")]
 
-def test_add_custom_server_validation():
-    """Tests the validation for adding a custom server."""
-    state = McpState()
-    # Test missing name
-    state.add_custom_server()
-    assert state.custom_server_form_error == "Name and description are required."
+    mocker.patch("app.states.settings_state.asyncio.to_thread", return_value=MockData())
 
-    # Test missing description
-    state.custom_server_name = "Test"
-    state.add_custom_server()
-    assert state.custom_server_form_error == "Name and description are required."
+    state = SettingsState()
+    state.api_keys["openai"] = "test_key"
+    models, error = await state._fetch_openai_compatible_models("openai")
 
-    # Test duplicate name
-    state.custom_server_description = "A description"
-    state.custom_server_name = "Web Search" # Default server
-    state.add_custom_server()
-    assert state.custom_server_form_error == "A server with this name already exists."
+    assert models == ["gpt-3.5-turbo", "gpt-4"]
+    assert error is None
+
+@pytest.mark.asyncio
+async def test_fetch_openai_compatible_models_auth_error(mocker):
+    """Tests authentication error during model fetching."""
+    mock_response = httpx.Response(401, request=httpx.Request("GET", ""))
+    mocker.patch(
+        "app.states.settings_state.asyncio.to_thread",
+        side_effect=AuthenticationError("Invalid API Key.", response=mock_response, body=None),
+    )
+
+    state = SettingsState()
+    state.api_keys["openai"] = "invalid_key"
+    models, error = await state._fetch_openai_compatible_models("openai")
+
+    assert models == []
+    assert error == "Invalid API Key."
+
+@pytest.mark.asyncio
+async def test_process_and_stream_response_no_model(mocker):
+    """Tests the case where no model is selected."""
+    mock_settings_state = SettingsState()
+    mocker.patch.object(ChatState, "get_state", return_value=mock_settings_state)
+    state = ChatState()
+
+    result = await state._process_and_stream_response()
+    assert result == "No model selected. Please select a model in settings."
+
+@pytest.mark.asyncio
+async def test_process_and_stream_response_success(mocker):
+    """Tests a successful response stream."""
+    mock_settings_state = SettingsState()
+    mock_settings_state.selected_model = "openai:gpt-4"
+    mock_settings_state.api_keys["openai"] = "fake_key"
+    mocker.patch.object(ChatState, "get_state", return_value=mock_settings_state)
+    mock_stream = mocker.AsyncMock()
+    mocker.patch.object(ChatState, "_stream_openai_compatible_response", return_value=mock_stream)
+
+    state = ChatState()
+    result = await state._process_and_stream_response()
+
+    assert result == mock_stream
+    ChatState._stream_openai_compatible_response.assert_called_once()

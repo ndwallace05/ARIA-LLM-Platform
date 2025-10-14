@@ -4,7 +4,6 @@ from openai import OpenAI, AuthenticationError
 import google.generativeai as genai
 import asyncio
 import logging
-from typing import cast
 
 
 class SettingsState(rx.State):
@@ -55,43 +54,38 @@ class SettingsState(rx.State):
     ):
         api_key = self.api_keys.get(provider)
         if not api_key:
-            return []
+            return [], None
         try:
             client = OpenAI(api_key=api_key, base_url=base_url)
             models_response = await asyncio.to_thread(client.models.list)
-            return sorted([model.id for model in models_response.data])
+            return sorted([model.id for model in models_response.data]), None
         except AuthenticationError as e:
             logging.exception(f"Authentication error for {provider}: {e}")
-            async with self:
-                self.error_messages[provider] = "Invalid API Key."
-            return []
+            return [], "Invalid API Key."
         except Exception as e:
             logging.exception(
                 f"Error fetching openai-compatible models for {provider}: {e}"
             )
-            async with self:
-                self.error_messages[provider] = f"Error: {e}"
-            return []
+            return [], f"Error: {e}"
 
     async def _fetch_gemini_models(self):
         api_key = self.api_keys.get("gemini")
         if not api_key:
-            return []
+            return [], None
         try:
             genai.configure(api_key=api_key)
             models_response = await asyncio.to_thread(genai.list_models)
-            return sorted(
+            models = sorted(
                 [
                     m.name.replace("models/", "")
                     for m in models_response
                     if "generateContent" in m.supported_generation_methods
                 ]
             )
+            return models, None
         except Exception as e:
             logging.exception(f"Error fetching gemini models: {e}")
-            async with self:
-                self.error_messages["gemini"] = f"Error: {e}"
-            return []
+            return [], f"Error: {e}"
 
     async def _fetch_openrouter_models(self):
         api_key = self.api_keys.get("openrouter")
@@ -105,22 +99,18 @@ class SettingsState(rx.State):
                 )
                 response.raise_for_status()
                 models_data = response.json()["data"]
-                return sorted([model["id"] for model in models_data])
+                return sorted([model["id"] for model in models_data]), None
         except httpx.HTTPStatusError as e:
             logging.exception(f"HTTPStatusError fetching openrouter models: {e}")
-            async with self:
-                self.error_messages["openrouter"] = f"Error: {e.response.status_code}"
-            return []
+            return [], f"Error: {e.response.status_code}"
         except Exception as e:
             logging.exception(f"Error fetching openrouter models: {e}")
-            async with self:
-                self.error_messages["openrouter"] = f"Error: {e}"
-            return []
+            return [], f"Error: {e}"
 
     async def _fetch_moonshot_models(self):
         api_key = self.api_keys.get("moonshot")
         if not api_key:
-            return []
+            return [], None
         try:
             async with httpx.AsyncClient() as client:
                 headers = {"Authorization": f"Bearer {api_key}"}
@@ -129,12 +119,10 @@ class SettingsState(rx.State):
                 )
                 response.raise_for_status()
                 models_data = response.json()["data"]
-                return sorted([model["id"] for model in models_data])
+                return sorted([model["id"] for model in models_data]), None
         except Exception as e:
             logging.exception(f"Error fetching moonshot models: {e}")
-            async with self:
-                self.error_messages["moonshot"] = f"Error: {e}"
-            return []
+            return [], f"Error: {e}"
 
     async def _fetch_ollama_models(self):
         base_url = self.api_keys.get("ollama", "http://localhost:11434").strip("/")
@@ -143,17 +131,13 @@ class SettingsState(rx.State):
                 response = await client.get(f"{base_url}/api/tags")
                 response.raise_for_status()
                 models_data = response.json().get("models", [])
-                return sorted([model["name"] for model in models_data])
+                return sorted([model["name"] for model in models_data]), None
         except (httpx.ConnectError, httpx.RequestError) as e:
             logging.exception(f"Connection error fetching ollama models: {e}")
-            async with self:
-                self.error_messages["ollama"] = "Connection failed. Is Ollama running?"
-            return []
+            return [], "Connection failed. Is Ollama running?"
         except Exception as e:
             logging.exception(f"Error fetching ollama models: {e}")
-            async with self:
-                self.error_messages["ollama"] = f"Error: {e}"
-            return []
+            return [], f"Error: {e}"
 
     @rx.event
     def toggle_settings(self):
@@ -212,33 +196,37 @@ class SettingsState(rx.State):
             self.expanded_providers.add(provider)
             self.error_messages.pop(provider, None)
             self.models.pop(provider, None)
-        fetched_models = []
+
+        fetched_models, error = [], None
         if provider == "openai":
-            fetched_models = await self._fetch_openai_compatible_models("openai")
+            fetched_models, error = await self._fetch_openai_compatible_models("openai")
         elif provider == "groq":
-            fetched_models = await self._fetch_openai_compatible_models(
+            fetched_models, error = await self._fetch_openai_compatible_models(
                 "groq", "https://api.groq.com/openai/v1"
             )
         elif provider == "deepseek":
-            fetched_models = await self._fetch_openai_compatible_models(
+            fetched_models, error = await self._fetch_openai_compatible_models(
                 "deepseek", "https://api.deepseek.com"
             )
         elif provider == "gemini":
-            fetched_models = await self._fetch_gemini_models()
+            fetched_models, error = await self._fetch_gemini_models()
         elif provider == "openrouter":
-            fetched_models = await self._fetch_openrouter_models()
+            fetched_models, error = await self._fetch_openrouter_models()
         elif provider == "moonshot":
-            fetched_models = await self._fetch_moonshot_models()
+            fetched_models, error = await self._fetch_moonshot_models()
         elif provider == "ollama":
-            fetched_models = await self._fetch_ollama_models()
+            fetched_models, error = await self._fetch_ollama_models()
         elif provider == "anthropic":
-            fetched_models = [
+            fetched_models, error = [
                 "claude-3-opus-20240229",
                 "claude-3-sonnet-20240229",
                 "claude-3-haiku-20240307",
-            ]
+            ], None
+
         async with self:
-            if fetched_models:
+            if error:
+                self.error_messages[provider] = error
+            elif fetched_models:
                 self.models[provider] = fetched_models
             self.loading_models.remove(provider)
 

@@ -1,5 +1,6 @@
 import reflex as rx
 from app.states.state import ChatState
+from app.states.settings_state import SettingsState
 from typing import TypedDict, Literal
 
 
@@ -53,7 +54,6 @@ def message_bubble(message: Message) -> rx.Component:
     )
 
 
-from app.states.settings_state import SettingsState
 
 
 def chat_header() -> rx.Component:
