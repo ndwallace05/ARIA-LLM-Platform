@@ -8,6 +8,8 @@ from typing import cast
 
 
 class SettingsState(rx.State):
+    """Manages the state for the settings modal."""
+
     show_settings: bool = False
     api_keys: dict[str, str] = {
         "openai": "",
@@ -28,12 +30,22 @@ class SettingsState(rx.State):
 
     @rx.var
     def selected_provider(self) -> str:
+        """The provider of the currently selected model.
+
+        Returns:
+            The name of the provider.
+        """
         if ":" in self.selected_model:
             return self.selected_model.split(":")[0]
         return ""
 
     @rx.var
     def selected_model_id(self) -> str:
+        """The ID of the currently selected model.
+
+        Returns:
+            The ID of the model.
+        """
         if ":" in self.selected_model:
             return self.selected_model.split(":", 1)[1]
         return ""
@@ -145,10 +157,17 @@ class SettingsState(rx.State):
 
     @rx.event
     def toggle_settings(self):
+        """Toggles the visibility of the settings modal."""
         self.show_settings = not self.show_settings
 
     @rx.event
     def set_api_key(self, provider: str, key: str):
+        """Sets the API key for a given provider.
+
+        Args:
+            provider: The name of the provider.
+            key: The API key.
+        """
         self.api_keys[provider] = key
         self.error_messages.pop(provider, None)
         if not key:
@@ -162,6 +181,11 @@ class SettingsState(rx.State):
 
     @rx.event
     def toggle_provider_expansion(self, provider: str):
+        """Toggles the expansion of a provider's model list.
+
+        Args:
+            provider: The name of the provider to expand or collapse.
+        """
         if provider in self.expanded_providers:
             self.expanded_providers.remove(provider)
         else:
@@ -173,6 +197,14 @@ class SettingsState(rx.State):
 
     @rx.event(background=True)
     async def refresh_models(self, provider: str):
+        """Refreshes the list of models for a given provider.
+
+        This is an async background task that fetches the models from the
+        provider's API.
+
+        Args:
+            provider: The name of the provider to refresh models for.
+        """
         async with self:
             if provider in self.loading_models:
                 return
@@ -212,10 +244,22 @@ class SettingsState(rx.State):
 
     @rx.event
     def set_model_search_term(self, provider: str, term: str):
+        """Sets the search term for a provider's model list.
+
+        Args:
+            provider: The name of the provider.
+            term: The search term.
+        """
         self.model_search_terms[provider] = term
 
     @rx.var
     def filtered_models(self) -> dict[str, list[str]]:
+        """A dictionary of models filtered by the search term.
+
+        Returns:
+            A dictionary where keys are provider names and values are
+            lists of filtered model names.
+        """
         filtered = {}
         for provider, models_list in self.models.items():
             search_term = self.model_search_terms.get(provider, "").lower()
@@ -229,4 +273,9 @@ class SettingsState(rx.State):
 
     @rx.event
     def select_model(self, model_id: str):
+        """Selects a model.
+
+        Args:
+            model_id: The ID of the model to select.
+        """
         self.selected_model = model_id

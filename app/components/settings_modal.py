@@ -3,7 +3,16 @@ from app.states.settings_state import SettingsState
 
 
 def model_list(provider: str) -> rx.Component:
-    """Component to display the list of models for a provider."""
+    """Creates a component to display the list of models for a given provider.
+
+    This component includes a search input and a list of models that can be selected.
+
+    Args:
+        provider: The name of the provider to display models for.
+
+    Returns:
+        A reflex component representing the model list.
+    """
     models_for_provider = SettingsState.filtered_models.get(provider, [])
 
     def model_row(model: str):
@@ -46,6 +55,18 @@ def model_list(provider: str) -> rx.Component:
 
 
 def provider_input(provider: str) -> rx.Component:
+    """Creates a component for a single provider's settings.
+
+    This component includes an input for the API key or base URL,
+    buttons to refresh the model list and toggle its visibility,
+    and the model list itself.
+
+    Args:
+        provider: The name of the provider.
+
+    Returns:
+        A reflex component representing the provider's settings.
+    """
     is_expanded = SettingsState.expanded_providers.contains(provider)
     is_loading = SettingsState.loading_models.contains(provider)
     has_key_or_url = (SettingsState.api_keys[provider] != "") | (provider == "ollama")
@@ -112,7 +133,14 @@ def provider_input(provider: str) -> rx.Component:
 
 
 def settings_modal() -> rx.Component:
-    """The settings modal component."""
+    """Creates the settings modal component.
+
+    The modal allows users to manage API keys and other settings for
+    different LLM providers.
+
+    Returns:
+        A reflex component representing the settings modal.
+    """
     return rx.cond(
         SettingsState.show_settings,
         rx.el.div(

@@ -3,6 +3,8 @@ from typing import TypedDict, cast
 
 
 class McpServer(TypedDict):
+    """Represents a single MCP server with its metadata and status."""
+
     name: str
     description: str
     repo: str
@@ -11,6 +13,8 @@ class McpServer(TypedDict):
 
 
 class McpState(rx.State):
+    """Manages the state for the MCP services modal."""
+
     servers: dict[str, McpServer] = {
         "web-search": {
             "name": "Web Search",
@@ -63,6 +67,7 @@ class McpState(rx.State):
 
     @rx.event
     def toggle_mcp_modal(self):
+        """Toggles the visibility of the MCP services modal."""
         self.show_mcp_modal = not self.show_mcp_modal
         if not self.show_mcp_modal:
             self.show_custom_server_form = False
@@ -70,11 +75,21 @@ class McpState(rx.State):
 
     @rx.event
     def install_server(self, server_name: str):
+        """Marks a server as installed.
+
+        Args:
+            server_name: The name of the server to install.
+        """
         if server_name in self.servers:
             self.servers[server_name]["installed"] = True
 
     @rx.event
     def toggle_server_running(self, server_name: str):
+        """Toggles the running state of an installed server.
+
+        Args:
+            server_name: The name of the server to start or stop.
+        """
         if server_name in self.servers and self.servers[server_name]["installed"]:
             self.servers[server_name]["running"] = not self.servers[server_name][
                 "running"
@@ -82,11 +97,16 @@ class McpState(rx.State):
 
     @rx.event
     def toggle_custom_server_form(self):
+        """Toggles the visibility of the custom server form."""
         self.show_custom_server_form = not self.show_custom_server_form
         self._reset_custom_server_form()
 
     @rx.event
     def add_custom_server(self):
+        """Adds a new custom server to the list of servers.
+
+        Validates the form data and adds the server if it is valid.
+        """
         if not self.custom_server_name or not self.custom_server_description:
             self.custom_server_form_error = "Name and description are required."
             return

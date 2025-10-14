@@ -7,7 +7,14 @@ from app.components.mcp_modal import mcp_modal
 
 
 def sidebar_chat_item(chat_id: str) -> rx.Component:
-    """A sidebar item for a single chat session."""
+    """Creates a sidebar item for a single chat session.
+
+    Args:
+        chat_id: The ID of the chat session.
+
+    Returns:
+        A reflex component representing the sidebar chat item.
+    """
     return rx.el.button(
         rx.el.div(
             rx.icon("message-circle", size=16, class_name="mr-2 shrink-0"),
@@ -24,7 +31,14 @@ def sidebar_chat_item(chat_id: str) -> rx.Component:
 
 
 def sidebar() -> rx.Component:
-    """The sidebar component for navigation and chat history."""
+    """Creates the sidebar component for navigation and chat history.
+
+    The sidebar includes the application title, a button to start a new chat,
+    a list of conversations, and buttons to open the settings and MCP services modals.
+
+    Returns:
+        A reflex component representing the sidebar.
+    """
     return rx.el.div(
         rx.el.div(
             rx.el.div(

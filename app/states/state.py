@@ -7,31 +7,51 @@ from app.states.settings_state import SettingsState
 
 
 class Message(TypedDict):
+    """Represents a single chat message with its role and content."""
+
     role: Literal["user", "assistant"]
     content: str
 
 
 class ChatState(rx.State):
+    """Manages the state of the chat application."""
+
     chats: dict[str, list[Message]] = {"new chat": []}
     current_chat_id: str = "new chat"
     is_streaming: bool = False
 
     @rx.var
     def chat_titles(self) -> list[str]:
+        """A list of titles for all chat sessions.
+
+        Returns:
+            A list of chat titles.
+        """
         return list(self.chats.keys())
 
     @rx.var
     def current_chat(self) -> list[Message]:
+        """The list of messages in the current chat session.
+
+        Returns:
+            A list of messages.
+        """
         return self.chats.get(self.current_chat_id, [])
 
     @rx.event
     def new_chat(self):
+        """Creates a new chat session."""
         new_id = f"chat_{len(self.chats)}"
         self.chats[new_id] = []
         self.current_chat_id = new_id
 
     @rx.event
     def set_current_chat_id(self, chat_id: str):
+        """Sets the current chat session.
+
+        Args:
+            chat_id: The ID of the chat to set as current.
+        """
         self.current_chat_id = chat_id
 
     async def _stream_openai_compatible_response(
@@ -62,6 +82,14 @@ class ChatState(rx.State):
 
     @rx.event(background=True)
     async def handle_submit(self, form_data: dict):
+        """Handles the submission of a new message.
+
+        This is an async background task that processes the user's message,
+        sends it to the selected model, and streams the response.
+
+        Args:
+            form_data: The data from the message input form.
+        """
         message_text = form_data.get("message", "").strip()
         if not message_text:
             return

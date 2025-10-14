@@ -4,7 +4,14 @@ from app.components.chat import chat_interface
 
 
 def index() -> rx.Component:
-    """The main page of the application."""
+    """Renders the main page of the application.
+
+    This function combines the sidebar and chat interface components
+    to create the main user interface.
+
+    Returns:
+        A reflex component representing the main page.
+    """
     return rx.el.main(
         rx.el.div(sidebar(), chat_interface(), class_name="flex h-screen"),
         class_name="font-['Inter'] bg-gray-50 text-gray-800",
