@@ -1,0 +1,8 @@
+
+reflex==0.8.14
+openai
+anthropic
+google-generativeai
+requests
+httpx
+mcp
