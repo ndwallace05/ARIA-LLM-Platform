@@ -4,6 +4,17 @@ from typing import cast
 
 
 def mcp_server_card(item: list) -> rx.Component:
+    """Creates a card component for a single MCP server.
+
+    The card displays the server's name, description, and repository link,
+    along with buttons to start, stop, or install the server.
+
+    Args:
+        item: A list containing the server name and the McpServer object.
+
+    Returns:
+        A reflex component representing the server card.
+    """
     server_name = cast(str, item[0])
     server = cast(McpServer, item[1])
     return rx.el.div(
@@ -48,7 +59,14 @@ def mcp_server_card(item: list) -> rx.Component:
 
 
 def custom_mcp_server_form() -> rx.Component:
-    """Form to add a custom MCP server."""
+    """Creates a form for adding a custom MCP server.
+
+    The form includes fields for the server name, description, and
+    repository URL, along with buttons to cancel or add the server.
+
+    Returns:
+        A reflex component representing the custom server form.
+    """
     return rx.el.div(
         rx.el.h3(
             "Add Custom MCP Server",
@@ -113,7 +131,14 @@ def custom_mcp_server_form() -> rx.Component:
 
 
 def mcp_modal() -> rx.Component:
-    """The MCP services management modal."""
+    """Creates the modal component for managing MCP services.
+
+    The modal displays a list of available MCP servers, allows users
+    to add custom servers, and provides a way to close the modal.
+
+    Returns:
+        A reflex component representing the MCP services modal.
+    """
     return rx.cond(
         McpState.show_mcp_modal,
         rx.el.div(

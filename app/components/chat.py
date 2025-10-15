@@ -1,5 +1,6 @@
 import reflex as rx
 from app.states.state import ChatState
+from app.states.settings_state import SettingsState
 from typing import TypedDict, Literal
 
 
@@ -9,7 +10,14 @@ class Message(TypedDict):
 
 
 def message_bubble(message: Message) -> rx.Component:
-    """A message bubble component for user and assistant messages."""
+    """Creates a message bubble component for a single message.
+
+    Args:
+        message: A dictionary containing the message role and content.
+
+    Returns:
+        A reflex component representing the message bubble.
+    """
     is_user = message["role"] == "user"
     return rx.el.div(
         rx.el.div(
@@ -46,10 +54,16 @@ def message_bubble(message: Message) -> rx.Component:
     )
 
 
-from app.states.settings_state import SettingsState
 
 
 def chat_header() -> rx.Component:
+    """Creates the header component for the chat interface.
+
+    The header displays the currently selected model.
+
+    Returns:
+        A reflex component representing the chat header.
+    """
     return rx.el.div(
         rx.el.div(
             rx.el.p("Model:", class_name="text-sm text-gray-500"),
@@ -68,7 +82,14 @@ def chat_header() -> rx.Component:
 
 
 def chat_interface() -> rx.Component:
-    """The main chat interface component."""
+    """Creates the main chat interface component.
+
+    This component includes the chat header, message display area,
+    and the message input form.
+
+    Returns:
+        A reflex component representing the chat interface.
+    """
     return rx.el.div(
         rx.el.div(
             chat_header(),
