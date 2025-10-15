@@ -29,22 +29,14 @@ class SettingsState(rx.State):
 
     @rx.var
     def selected_provider(self) -> str:
-        """The provider of the currently selected model.
-
-        Returns:
-            The name of the provider.
-        """
+        """The provider of the currently selected model."""
         if ":" in self.selected_model:
             return self.selected_model.split(":")[0]
         return ""
 
     @rx.var
     def selected_model_id(self) -> str:
-        """The ID of the currently selected model.
-
-        Returns:
-            The ID of the model.
-        """
+        """The ID of the currently selected model."""
         if ":" in self.selected_model:
             return self.selected_model.split(":", 1)[1]
         return ""

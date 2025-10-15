@@ -1,5 +1,5 @@
 import pytest
-from app.states.state import ChatState
+from app.states.state import ChatState, StreamResponseResult
 from app.states.settings_state import SettingsState
 from app.states.mcp_state import McpState
 from openai import AuthenticationError
@@ -168,7 +168,9 @@ async def test_process_and_stream_response_no_model(mocker):
     state = ChatState()
 
     result = await state._process_and_stream_response()
-    assert result == "No model selected. Please select a model in settings."
+    assert isinstance(result, StreamResponseResult)
+    assert result.error == "No model selected. Please select a model in settings."
+    assert not result.is_stream
 
 @pytest.mark.asyncio
 async def test_process_and_stream_response_success(mocker):
@@ -183,5 +185,7 @@ async def test_process_and_stream_response_success(mocker):
     state = ChatState()
     result = await state._process_and_stream_response()
 
-    assert result == mock_stream
+    assert isinstance(result, StreamResponseResult)
+    assert result.stream == mock_stream
+    assert result.is_stream
     ChatState._stream_openai_compatible_response.assert_called_once()

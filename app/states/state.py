@@ -13,6 +13,14 @@ class Message(TypedDict):
     content: str
 
 
+class StreamResponseResult:
+    """Explicit result type for LLM responses."""
+    def __init__(self, stream=None, error=None):
+        self.stream = stream  # async generator or None
+        self.error = error    # str or None
+        self.is_stream = stream is not None
+
+
 class ChatState(rx.State):
     """Manages the state of the chat application."""
 
@@ -22,20 +30,12 @@ class ChatState(rx.State):
 
     @rx.var
     def chat_titles(self) -> list[str]:
-        """A list of titles for all chat sessions.
-
-        Returns:
-            A list of chat titles.
-        """
+        """A list of titles for all chat sessions."""
         return list(self.chats.keys())
 
     @rx.var
     def current_chat(self) -> list[Message]:
-        """The list of messages in the current chat session.
-
-        Returns:
-            A list of messages.
-        """
+        """The list of messages in the current chat session."""
         return self.chats.get(self.current_chat_id, [])
 
     @rx.event
@@ -84,7 +84,7 @@ class ChatState(rx.State):
         """Helper to process and stream the response from the LLM.
 
         Returns:
-            An async generator if successful, otherwise an error string.
+            StreamResponseResult: Contains either an async generator (stream) or an error string.
         """
         settings = await self.get_state(SettingsState)
         provider = settings.selected_provider
@@ -93,7 +93,7 @@ class ChatState(rx.State):
         ollama_url = settings.api_keys.get("ollama", "http://localhost:11434")
 
         if not provider or not model_id:
-            return "No model selected. Please select a model in settings."
+            return StreamResponseResult(error="No model selected. Please select a model in settings.")
 
         base_urls = {
             "openai": None, "groq": "https://api.groq.com/openai/v1", "deepseek": "https://api.deepseek.com",
@@ -105,14 +105,15 @@ class ChatState(rx.State):
 
         if provider in openai_compatible_providers:
             if not api_key and provider not in ["openrouter", "ollama"]:
-                return f"API key for {provider} not set."
+                return StreamResponseResult(error=f"API key for {provider} not set.")
 
             client = OpenAI(api_key=api_key, base_url=base_urls.get(provider))
-            return self._stream_openai_compatible_response(
+            stream = self._stream_openai_compatible_response(
                 client, model_id, cast(list[Message], messages_to_send)
             )
+            return StreamResponseResult(stream=stream)
         else:
-            return f"Provider '{provider}' is not yet supported for chat."
+            return StreamResponseResult(error=f"Provider '{provider}' is not yet supported for chat.")
 
     @rx.event(background=True)
     async def handle_submit(self, form_data: dict):
@@ -138,13 +139,13 @@ class ChatState(rx.State):
             yield
 
         try:
-            response = await self._process_and_stream_response()
-            if hasattr(response, "__aiter__"):
-                async for _ in response:
+            result = await self._process_and_stream_response()
+            if result.is_stream:
+                async for _ in result.stream:
                     yield
             else:
                 async with self:
-                    self.chats[self.current_chat_id][-1]["content"] = response
+                    self.chats[self.current_chat_id][-1]["content"] = result.error
         finally:
             async with self:
                 self.is_streaming = False

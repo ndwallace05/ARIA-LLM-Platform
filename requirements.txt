@@ -6,7 +6,3 @@ google-generativeai
 requests
 httpx
 mcp
-pytest
-flake8
-pytest-mock
-pytest-asyncio
