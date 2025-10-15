@@ -1,5 +1,6 @@
 import reflex as rx
 from typing import TypedDict
+import re
 
 
 class McpServer(TypedDict):
@@ -60,6 +61,7 @@ class McpState(rx.State):
     custom_server_form_error: str = ""
 
     def _reset_custom_server_form(self):
+        """Resets the fields in the custom server form."""
         self.custom_server_name = ""
         self.custom_server_description = ""
         self.custom_server_repo = ""
@@ -109,6 +111,12 @@ class McpState(rx.State):
         """
         if not self.custom_server_name or not self.custom_server_description:
             self.custom_server_form_error = "Name and description are required."
+            return
+        if self.custom_server_repo and not re.match(
+            r"^(https?://)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*/?$",
+            self.custom_server_repo,
+        ):
+            self.custom_server_form_error = "Please enter a valid repository URL."
             return
         server_key = self.custom_server_name.lower().replace(" ", "-")
         if server_key in self.servers:

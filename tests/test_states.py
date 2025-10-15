@@ -60,21 +60,21 @@ def test_toggle_settings():
     state.toggle_settings()
     assert not state.show_settings
 
+def check_model_selection(state, model_id, provider, model_name):
+    """Helper function to check model selection."""
+    state.select_model(model_id)
+    assert state.selected_model == model_id
+    assert state.selected_provider == provider
+    assert state.selected_model_id == model_name
+
 def test_select_model_and_computed_vars():
     """Tests selecting a model and the dependent computed properties."""
     state = SettingsState()
     assert state.selected_provider == ""
     assert state.selected_model_id == ""
 
-    state.select_model("openai:gpt-4")
-    assert state.selected_model == "openai:gpt-4"
-    assert state.selected_provider == "openai"
-    assert state.selected_model_id == "gpt-4"
-
-    state.select_model("ollama:llama2:latest")
-    assert state.selected_model == "ollama:llama2:latest"
-    assert state.selected_provider == "ollama"
-    assert state.selected_model_id == "llama2:latest"
+    check_model_selection(state, "openai:gpt-4", "openai", "gpt-4")
+    check_model_selection(state, "ollama:llama2:latest", "ollama", "llama2:latest")
 
 def test_filtered_models():
     """Tests the filtered_models computed property."""
@@ -189,3 +189,16 @@ async def test_process_and_stream_response_success(mocker):
     assert result.stream == mock_stream
     assert result.is_stream
     ChatState._stream_openai_compatible_response.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_process_and_stream_response_unsupported_provider(mocker):
+    """Tests the case where the provider is not supported."""
+    mock_settings_state = SettingsState()
+    mock_settings_state.selected_model = "unsupported:some-model"
+    mocker.patch.object(ChatState, "get_state", return_value=mock_settings_state)
+    state = ChatState()
+
+    result = await state._process_and_stream_response()
+    assert isinstance(result, StreamResponseResult)
+    assert result.error == "Provider 'unsupported' is not yet supported for chat."
+    assert not result.is_stream

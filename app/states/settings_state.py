@@ -6,6 +6,13 @@ import asyncio
 import logging
 
 
+ANTHROPIC_MODELS = [
+    "claude-3-opus-20240229",
+    "claude-3-sonnet-20240229",
+    "claude-3-haiku-20240307",
+]
+
+
 class SettingsState(rx.State):
     """Manages the state for the settings modal."""
 
@@ -44,6 +51,15 @@ class SettingsState(rx.State):
     async def _fetch_openai_compatible_models(
         self, provider: str, base_url: str | None = None
     ):
+        """Fetches a list of openai compatible models.
+
+        Args:
+            provider: The name of the provider.
+            base_url: The base URL of the API.
+
+        Returns:
+            A tuple containing the list of models and an error message.
+        """
         api_key = self.api_keys.get(provider)
         if not api_key:
             return [], None
@@ -209,11 +225,8 @@ class SettingsState(rx.State):
         elif provider == "ollama":
             fetched_models, error = await self._fetch_ollama_models()
         elif provider == "anthropic":
-            fetched_models, error = [
-                "claude-3-opus-20240229",
-                "claude-3-sonnet-20240229",
-                "claude-3-haiku-20240307",
-            ], None
+            # For maintainers: Update ANTHROPIC_MODELS above when new models are released.
+            fetched_models, error = ANTHROPIC_MODELS, None
 
         async with self:
             if error:

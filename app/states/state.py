@@ -89,35 +89,37 @@ class ChatState(rx.State):
         settings = await self.get_state(SettingsState)
         provider = settings.selected_provider
         model_id = settings.selected_model_id
-        api_key = settings.api_keys.get(provider)
-        ollama_url = settings.api_keys.get("ollama", "http://localhost:11434")
-
         if not provider or not model_id:
             return StreamResponseResult(error="No model selected. Please select a model in settings.")
 
+        api_key = settings.api_keys.get(provider)
+        ollama_url = settings.api_keys.get("ollama", "http://localhost:11434")
         base_urls = {
             "openai": None, "groq": "https://api.groq.com/openai/v1", "deepseek": "https://api.deepseek.com",
             "openrouter": "https://openrouter.ai/api/v1", "moonshot": "https://api.moonshot.cn/v1",
             "ollama": ollama_url.strip("/") + "/v1",
         }
         openai_compatible_providers = list(base_urls.keys())
-        messages_to_send = self.chats[self.current_chat_id][:-1]
-
-        if provider in openai_compatible_providers:
-            if not api_key and provider not in ["openrouter", "ollama"]:
-                return StreamResponseResult(error=f"API key for {provider} not set.")
-
-            client = OpenAI(api_key=api_key, base_url=base_urls.get(provider))
-            stream = self._stream_openai_compatible_response(
-                client, model_id, cast(list[Message], messages_to_send)
-            )
-            return StreamResponseResult(stream=stream)
-        else:
+        if provider not in openai_compatible_providers:
             return StreamResponseResult(error=f"Provider '{provider}' is not yet supported for chat.")
+
+        if not api_key and provider not in ["openrouter", "ollama"]:
+            return StreamResponseResult(error=f"API key for {provider} not set.")
+
+        messages_to_send = self.chats[self.current_chat_id][:-1]
+        client = OpenAI(api_key=api_key, base_url=base_urls.get(provider))
+        stream = self._stream_openai_compatible_response(
+            client, model_id, cast(list[Message], messages_to_send)
+        )
+        return StreamResponseResult(stream=stream)
 
     @rx.event(background=True)
     async def handle_submit(self, form_data: dict):
-        """Handles the submission of a new message."""
+        """Handles the submission of a new message.
+
+        Args:
+            form_data: The data from the message input form.
+        """
         message_text = form_data.get("message", "").strip()
         if not message_text:
             return
